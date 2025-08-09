@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "339620283678",
+    "project_id": "collegecanteen-7226d",
+    "storage_bucket": "collegecanteen-7226d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:339620283678:android:d99056f8473b10828f350f",
+        "android_client_info": {
+          "package_name": "com.example.liftapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNg750maI_efIWyKqHvjjJg_AbeglY64w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
