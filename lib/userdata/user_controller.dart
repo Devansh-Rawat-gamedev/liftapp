@@ -2,7 +2,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:liftapp/userdata/user_repository.dart';
 
 // import '../../common/widgets/loaders/circular_loader.dart';
