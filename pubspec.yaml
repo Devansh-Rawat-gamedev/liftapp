@@ -58,6 +58,12 @@ dependencies:
   # Notification
   flutter_local_notifications: ^19.2.1
 
+ # Payment Gateway
+  upi_india: ^3.0.1
+  qr_flutter: ^4.0.0
+
+
+  fluttertoast: ^8.2.4
   supabase_flutter: ^2.9.0
 
 

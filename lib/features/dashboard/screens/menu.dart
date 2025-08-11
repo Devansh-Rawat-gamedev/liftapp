@@ -29,8 +29,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
   @override
   void dispose() {
-    // Clear the cart when exiting this outlet's menu
-    cartController.clearCart();
+    // Keep cart persistent until checkout, don't clear on dispose
     super.dispose();
   }
 
@@ -82,8 +81,7 @@ class _MenuScreenState extends State<MenuScreen> {
                             ),
                             if (item.description.isNotEmpty)
                               Padding(
-                                padding:
-                                const EdgeInsets.only(top: 4, bottom: 8),
+                                padding: const EdgeInsets.only(top: 4, bottom: 8),
                                 child: Text(
                                   item.description,
                                   style: TextStyle(color: Colors.grey[700]),
@@ -111,17 +109,14 @@ class _MenuScreenState extends State<MenuScreen> {
                                         quantity: 1,
                                       ),
                                     );
-                                    setState(() {}); // Refresh to show cart bar
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(
-                                            '${item.name} added to cart'),
+                                        content: Text('${item.name} added to cart'),
+                                        duration: const Duration(seconds: 1),
                                       ),
                                     );
                                   },
-                                  icon: const Icon(
-                                      Icons.add_shopping_cart),
+                                  icon: const Icon(Icons.add_shopping_cart),
                                   label: const Text("Add to Cart"),
                                 )
                                     : Text(
@@ -156,8 +151,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
                 return Container(
                   color: Colors.white,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -171,7 +165,11 @@ class _MenuScreenState extends State<MenuScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const CartScreen(),
+                              builder: (_) => CartScreen(
+                                collegeId: widget.collegeId,
+                                outletId: widget.outletId,
+
+                              ),
                             ),
                           );
                         },
