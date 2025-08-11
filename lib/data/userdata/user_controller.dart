@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import 'package:liftapp/userdata/usemodel.dart';
+import 'package:liftapp/data/userdata/usemodel.dart';
 
 class UserController extends GetxController {
   static UserController get instance => Get.find();
