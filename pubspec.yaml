@@ -34,7 +34,7 @@ dependencies:
   firebase_storage: ^12.4.5
   firebase_messaging: ^15.2.6
   firebase_crashlytics: ^4.3.6
-
+  animate_do: ^3.1.2
 
   ## -- ICON PACKAGES
   iconsax: ^0.0.8

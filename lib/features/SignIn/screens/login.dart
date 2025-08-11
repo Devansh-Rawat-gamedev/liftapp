@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:liftapp/features/SignIn/screens/widgets/login_form.dart';
 
-class LogIn extends StatelessWidget{
-  const LogIn({super.key});
+class LoginPage extends StatelessWidget {
+  const LoginPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
-    throw UnimplementedError();
+    return Scaffold(
+      appBar: AppBar(title: const Text("Login")),
+      body: const Center(
+        child: SingleChildScrollView(child: LoginForm()),
+      ),
+    );
   }
 }

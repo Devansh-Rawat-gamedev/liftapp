@@ -9,7 +9,7 @@ class App extends StatelessWidget {
     return GetMaterialApp(
       /// -- README(Docs[4]) -- To use Screen Transitions here
       /// -- README(Docs[5]) -- Home Screen or Progress Indicator
-      home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+      home: const Scaffold(body: Center(child: Text("lol"))),
     );
   }
 }
