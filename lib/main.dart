@@ -12,14 +12,6 @@ import 'auth/authentication_repository.dart';
 import 'features/SignIn/controller/LoginController.dart';
 import 'firebase_options.dart';
 
-/// ------ For Docs & Updates Check ------
-/// ------------- README.md --------------
-
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 
 
 Future<void> main() async {
@@ -30,7 +22,7 @@ Future<void> main() async {
   Get.put(UserController());
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
       .then((_) => Get.put(AuthenticationRepository()));
-  // await CollegeSeeder.seedColleges();
+  await CollegeSeeder.seedColleges();
 
   runApp(const App());
 }

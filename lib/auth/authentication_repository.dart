@@ -18,7 +18,7 @@ class AuthenticationRepository extends GetxController {
     if (user == null) {
       Get.offAll(() => const LoginPage());
     } else {
-      Get.offAll(() => const DashboardScreen());
+      Get.offAll(() =>  DashboardScreen());
     }
     FlutterNativeSplash.remove();
   }
