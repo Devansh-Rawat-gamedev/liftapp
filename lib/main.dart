@@ -22,7 +22,7 @@ Future<void> main() async {
   Get.put(UserController());
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)
       .then((_) => Get.put(AuthenticationRepository()));
-  await CollegeSeeder.seedColleges();
+  // await CollegeSeeder.seedColleges();
 
   runApp(const App());
 }
