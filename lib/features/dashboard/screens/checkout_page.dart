@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:upi_india/upi_india.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -23,158 +22,170 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  final UpiIndia _upiIndia = UpiIndia();
-  List<UpiApp>? apps;
-  bool _isLoading = true;
-  Map<String, dynamic>? _upiConfig;
+  late Razorpay _razorpay;
+  bool _loading = true;
   String? _paymentStatus;
+  String? _keyId;
+  String? _merchantName;
 
   @override
   void initState() {
     super.initState();
-    _fetchUpiConfig();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
+    _fetchRazorpayConfig();
   }
 
-  Future<void> _fetchUpiConfig() async {
+  @override
+  void dispose() {
+    super.dispose();
+    _razorpay.clear();
+  }
+
+  Future<void> _fetchRazorpayConfig() async {
+    setState(() {
+      _loading = true;
+    });
+
     final doc = await FirebaseFirestore.instance
         .collection('colleges')
         .doc(widget.collegeId)
         .collection('outlets')
         .doc(widget.outletId)
         .collection('payment_gateways')
-        .doc('upi')
+        .doc('razorpay')
         .get();
 
     if (doc.exists && doc.data()?['isEnabled'] == true) {
+      final data = doc.data()!;
       setState(() {
-        _upiConfig = doc.data();
+        _keyId = data['keyId'];
+        _merchantName = data['merchantName'] ?? 'Your Business Name';
+        _loading = false;
       });
-      await _fetchUpiApps();
     } else {
       setState(() {
-        _isLoading = false;
+        _loading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("UPI payment not available for this outlet")),
+          const SnackBar(content: Text("Razorpay payment not available for this outlet")),
         );
       }
     }
   }
 
-  Future<void> _fetchUpiApps() async {
-    try {
-      final appsList = await _upiIndia.getAllUpiApps(mandatoryTransactionId: false);
-      setState(() {
-        apps = appsList;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        apps = [];
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _startTransaction(UpiApp app) async {
-    if (_upiConfig == null) return;
-
-    final transactionRef = "ORDER${DateTime.now().millisecondsSinceEpoch % 100000}";
-
-    UpiResponse response = await _upiIndia.startTransaction(
-      app: app,
-      receiverUpiId: _upiConfig!['upiId'],
-      receiverName: _upiConfig!['name'],
-      transactionRefId: transactionRef,
-      transactionNote: "Payment for your order",
-      amount: widget.totalAmount,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _paymentStatus = response.status.toString();
-    });
-
-    if (response.status == UpiPaymentStatus.SUCCESS) {
-      // Get current user ID from FirebaseAuth
-      final user = FirebaseAuth.instance.currentUser;
-      final userId = user?.uid ?? 'anonymous';
-
-      await FirebaseFirestore.instance.collection('orders').add({
-        'token': transactionRef,
-        'customerId': userId,
-        'outletId': widget.outletId,
-        'items': widget.cartItems,
-        'totalAmount': widget.totalAmount,
-        'paymentId': response.transactionId,
-        'status': 'pending',
-        'timestamp': FieldValue.serverTimestamp(),
-        'paymentMethod': 'UPI - ${app.name}',
-      });
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Payment Successful 🎉"),
-            content: Text("Your order token number is: $transactionRef"),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text("OK"),
-              ),
-            ],
-          ),
-        );
-      }
-    } else {
+  void _openCheckout() {
+    if (_keyId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Payment failed or cancelled")),
+        const SnackBar(content: Text("Payment configuration missing.")),
+      );
+      return;
+    }
+
+    final options = {
+      'key': _keyId!,
+      'amount': (widget.totalAmount * 100).toInt(), // in paise
+      'name': _merchantName ?? 'Your Business',
+      'description': 'Payment for your order',
+      'prefill': {
+        'contact': FirebaseAuth.instance.currentUser?.phoneNumber ?? '',
+        'email': FirebaseAuth.instance.currentUser?.email ?? '',
+      },
+      'external': {
+        'wallets': ['paytm']
+      },
+      'theme': {
+        'color': '#F37254',
+      },
+    };
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      debugPrint('Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error opening payment gateway: $e")),
       );
     }
   }
 
-  String get _upiQrCodeData {
-    print("UPI QR Code data: $_upiQrCodeData");
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    setState(() {
+      _paymentStatus = "SUCCESS";
+    });
 
-    if (_upiConfig == null) return "";
-    return Uri(
-      scheme: 'upi',
-      host: 'pay',
-      queryParameters: {
-        'pa': _upiConfig!['upiId'],
-        'pn': _upiConfig!['name'],
-        'am': widget.totalAmount.toStringAsFixed(2),
-        'cu': 'INR',
-        'tn': 'Payment for your order',
-      },
-    ).toString();
+    final user = FirebaseAuth.instance.currentUser;
+    final userId = user?.uid ?? 'anonymous';
+
+    await FirebaseFirestore.instance.collection('orders').add({
+      'customerId': userId,
+      'outletId': widget.outletId,
+      'items': widget.cartItems,
+      'totalAmount': widget.totalAmount,
+      'paymentStatus': 'success',
+      'razorpayPaymentId': response.paymentId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'paymentMethod': 'Razorpay',
+    });
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Payment Successful 🎉"),
+        content: const Text("Thank you for your payment."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    setState(() {
+      _paymentStatus = "FAILED";
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Payment failed: ${response.message}")),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("External wallet selected: ${response.walletName}")),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
+    if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (_upiConfig == null) {
+    if (_keyId == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Checkout")),
-        body: const Center(child: Text("UPI payment configuration not found.")),
+        body: const Center(child: Text("Razorpay payment configuration not found.")),
       );
     }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Checkout")),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Expanded(
@@ -191,53 +202,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               "Total: ₹${widget.totalAmount.toStringAsFixed(2)}",
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            if (apps != null && apps!.isNotEmpty) ...[
-              const Text(
-                "Select a UPI app to pay:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                children: apps!.map((app) {
-                  return ElevatedButton.icon(
-                    icon: Image.memory(
-                      app.icon,
-                      width: 24,
-                      height: 24,
-                    ),
-                    label: Text(app.name),
-                    onPressed: () => _startTransaction(app),
-                  );
-                }).toList(),
-              ),
-            ] else ...[
-              const Text(
-                "No UPI apps found on your device.",
-                style: TextStyle(fontSize: 16, color: Colors.red),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                "Scan this QR code with your UPI app to pay:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: QrImageView(
-                  data: _upiQrCodeData,
-                  version: QrVersions.auto,
-                  size: 200.0,
-                ),
-              ),
-            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _openCheckout,
+              child: const Text("Pay Now"),
+            ),
             if (_paymentStatus != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
                 "Payment Status: $_paymentStatus",
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ],
+            ]
           ],
         ),
       ),

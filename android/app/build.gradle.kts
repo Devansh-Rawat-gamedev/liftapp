@@ -10,6 +10,16 @@ plugins {
 }
 
 android {
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+
     namespace = "com.example.liftapp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
@@ -40,6 +50,14 @@ android {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
+            getByName("release") {
+                isMinifyEnabled = true
+                isShrinkResources = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
+            }
             signingConfig = signingConfigs.getByName("debug")
         }
     }

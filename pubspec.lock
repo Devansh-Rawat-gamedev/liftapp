@@ -225,6 +225,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.6"
+  eventify:
+    dependency: transitive
+    description:
+      name: eventify
+      sha256: b829429f08586cc2001c628e7499e3e3c2493a1d895fd73b00ecb23351aa5a66
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   fake_async:
     dependency: transitive
     description:
@@ -928,22 +936,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.1.5"
-  qr:
-    dependency: transitive
-    description:
-      name: qr
-      sha256: "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.2"
-  qr_flutter:
+  razorpay_flutter:
     dependency: "direct main"
     description:
-      name: qr_flutter
-      sha256: "5095f0fc6e3f71d08adef8feccc8cea4f12eec18a2e31c2e8d82cb6019f4b097"
+      name: razorpay_flutter
+      sha256: "7d86b2a2ba2c3a71366bbfb65664236ba4b12fd6aeaed4c13dfc5c998786b2d6"
       url: "https://pub.dev"
     source: hosted
-    version: "4.1.0"
+    version: "1.4.0"
   readmore:
     dependency: "direct main"
     description:
@@ -1149,14 +1149,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.2"
-  upi_india:
-    dependency: "direct main"
-    description:
-      name: upi_india
-      sha256: "483f1425ee8f0897397861b107e50b3aa195fec71215f86e906b625e841e90dd"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.0.1"
   url_launcher:
     dependency: "direct main"
     description:
