@@ -95,7 +95,7 @@ class CartScreen extends StatelessWidget {
                                 "price": item.price.toDouble(),
                                 "quantity": item.quantity,
                               }).toList(),
-                              totalAmount: cartController.totalPrice.toDouble(),
+                              // totalAmount: cartController.totalPrice.toDouble(),
                               collegeId: collegeId,
                               outletId: outletId,
                             ),

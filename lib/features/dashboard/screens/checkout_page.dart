@@ -1,20 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:pay/pay.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class CheckoutPage extends StatefulWidget {
-  final double totalAmount;
-  final List<Map<String, dynamic>> cartItems;
   final String collegeId;
   final String outletId;
+  final List<Map<String, dynamic>> cartItems;
 
   const CheckoutPage({
     super.key,
-    required this.totalAmount,
-    required this.cartItems,
     required this.collegeId,
     required this.outletId,
+    required this.cartItems,
   });
 
   @override
@@ -22,98 +23,127 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  late Razorpay _razorpay;
   bool _loading = true;
   String? _paymentStatus;
-  String? _keyId;
   String? _merchantName;
+  double _totalAmount = 0;
+
+  List<PaymentItem> _paymentItems = [];
+
+  String? _googlePayConfigJson;
+  String? _applePayConfigJson;
 
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-
-    _fetchRazorpayConfig();
+    _calculateTotalAmount();
+    _fetchPaymentConfig();
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-    _razorpay.clear();
+  void _calculateTotalAmount() {
+    double sum = 0;
+    for (var item in widget.cartItems) {
+      sum += (item['price'] as num) * (item['quantity'] as num);
+    }
+    _totalAmount = sum;
+    _paymentItems = [
+      PaymentItem(
+        label: 'Total',
+        amount: _totalAmount.toStringAsFixed(2),
+        status: PaymentItemStatus.final_price,
+      ),
+    ];
   }
 
-  Future<void> _fetchRazorpayConfig() async {
+  Future<void> _fetchPaymentConfig() async {
     setState(() {
       _loading = true;
     });
 
-    final doc = await FirebaseFirestore.instance
-        .collection('colleges')
-        .doc(widget.collegeId)
-        .collection('outlets')
-        .doc(widget.outletId)
-        .collection('payment_gateways')
-        .doc('razorpay')
-        .get();
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('colleges')
+          .doc(widget.collegeId)
+          .collection('outlets')
+          .doc(widget.outletId)
+          .collection('payment_gateways')
+          .doc('google_apple_pay')
+          .get();
 
-    if (doc.exists && doc.data()?['isEnabled'] == true) {
-      final data = doc.data()!;
-      setState(() {
-        _keyId = data['keyId'];
-        _merchantName = data['merchantName'] ?? 'Your Business Name';
-        _loading = false;
-      });
-    } else {
+      if (doc.exists && doc.data()?['isEnabled'] == true) {
+        final data = doc.data()!;
+        _merchantName = data['merchantName'] ?? "Merchant";
+
+        final googlePayConfigMap = {
+          "apiVersion": 2,
+          "apiVersionMinor": 0,
+          "allowedPaymentMethods": [
+            {
+              "type": "CARD",
+              "parameters": {
+                "allowedAuthMethods": List<String>.from(data['allowedAuthMethods'] ?? ['PAN_ONLY', 'CRYPTOGRAM_3DS']),
+                "allowedCardNetworks": List<String>.from(data['allowedCardNetworks'] ?? ['VISA', 'MASTERCARD', 'AMEX']),
+              },
+              "tokenizationSpecification": {
+                "type": "PAYMENT_GATEWAY",
+                "parameters": {
+                  "gateway": data['gateway'] ?? "example",
+                  "gatewayMerchantId": data['gatewayMerchantId'] ?? "exampleMerchantId",
+                }
+              }
+            }
+          ],
+          "merchantInfo": {
+            "merchantId": data['merchantId'] ?? "",
+            "merchantName": _merchantName
+          },
+          "transactionInfo": {
+            "countryCode": data['countryCode'] ?? "IN",
+            "currencyCode": data['currencyCode'] ?? "INR"
+          }
+        };
+
+        final applePayConfigMap = {
+          "provider": "apple_pay",
+          "data": {
+            "merchantIdentifier": data['appleMerchantIdentifier'] ?? "merchant.com.example",
+            "displayName": _merchantName,
+            "merchantCapabilities": List<String>.from(data['appleMerchantCapabilities'] ?? ["3DS", "debit", "credit"]),
+            "supportedNetworks": List<String>.from(data['appleSupportedNetworks'] ?? ["amex", "visa", "masterCard"]),
+            "countryCode": data['countryCode'] ?? "IN",
+            "currencyCode": data['currencyCode'] ?? "INR"
+          }
+        };
+
+        setState(() {
+          _googlePayConfigJson = jsonEncode(googlePayConfigMap);
+          _applePayConfigJson = jsonEncode(applePayConfigMap);
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _merchantName = null;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Payment not enabled for this outlet")),
+          );
+        }
+      }
+    } catch (e) {
       setState(() {
         _loading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Razorpay payment not available for this outlet")),
+          SnackBar(content: Text("Error fetching payment config: $e")),
         );
       }
     }
   }
 
-  void _openCheckout() {
-    if (_keyId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Payment configuration missing.")),
-      );
-      return;
-    }
-
-    final options = {
-      'key': _keyId!,
-      'amount': (widget.totalAmount * 100).toInt(), // in paise
-      'name': _merchantName ?? 'Your Business',
-      'description': 'Payment for your order',
-      'prefill': {
-        'contact': FirebaseAuth.instance.currentUser?.phoneNumber ?? '',
-        'email': FirebaseAuth.instance.currentUser?.email ?? '',
-      },
-      'external': {
-        'wallets': ['paytm']
-      },
-      'theme': {
-        'color': '#F37254',
-      },
-    };
-
-    try {
-      _razorpay.open(options);
-    } catch (e) {
-      debugPrint('Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error opening payment gateway: $e")),
-      );
-    }
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+  void _onPaymentResult(Map<String, dynamic> paymentResult) async {
     setState(() {
       _paymentStatus = "SUCCESS";
     });
@@ -121,50 +151,82 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final user = FirebaseAuth.instance.currentUser;
     final userId = user?.uid ?? 'anonymous';
 
-    await FirebaseFirestore.instance.collection('orders').add({
-      'customerId': userId,
-      'outletId': widget.outletId,
-      'items': widget.cartItems,
-      'totalAmount': widget.totalAmount,
-      'paymentStatus': 'success',
-      'razorpayPaymentId': response.paymentId,
-      'timestamp': FieldValue.serverTimestamp(),
-      'paymentMethod': 'Razorpay',
-    });
+    try {
+      await FirebaseFirestore.instance.collection('orders').add({
+        'customerId': userId,
+        'outletId': widget.outletId,
+        'items': widget.cartItems,
+        'totalAmount': _totalAmount,
+        'paymentStatus': 'success',
+        'paymentDetails': paymentResult,
+        'timestamp': FieldValue.serverTimestamp(),
+        'paymentMethod': Platform.isAndroid ? 'Google Pay' : 'Apple Pay',
+      });
 
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Payment Successful 🎉"),
-        content: const Text("Thank you for your payment."),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text("OK"),
-          ),
-        ],
-      ),
-    );
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Payment Successful 🎉"),
+          content: const Text("Thank you for your payment."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to save order: $e")),
+        );
+      }
+    }
   }
 
-  void _handlePaymentError(PaymentFailureResponse response) {
+  void _onPaymentError(Object? error) {
     setState(() {
       _paymentStatus = "FAILED";
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Payment failed: ${response.message}")),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Payment failed: $error")),
+      );
+    }
   }
 
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("External wallet selected: ${response.walletName}")),
-    );
+  Widget _buildPaymentButton() {
+    if (_googlePayConfigJson == null || _applePayConfigJson == null) {
+      return const Text('Payment configuration missing.');
+    }
+
+    if (Platform.isAndroid) {
+      return GooglePayButton(
+        paymentConfiguration: PaymentConfiguration.fromJsonString(_googlePayConfigJson!),
+        paymentItems: _paymentItems,
+        type: GooglePayButtonType.pay,
+        onPaymentResult: _onPaymentResult,
+        loadingIndicator: const CircularProgressIndicator(),
+        onError: _onPaymentError,
+      );
+    } else if (Platform.isIOS) {
+      return ApplePayButton(
+        paymentConfiguration: PaymentConfiguration.fromJsonString(_applePayConfigJson!),
+        paymentItems: _paymentItems,
+        type: ApplePayButtonType.buy,
+        onPaymentResult: _onPaymentResult,
+        loadingIndicator: const CircularProgressIndicator(),
+        onError: _onPaymentError,
+      );
+    } else {
+      return const Text('Payment not supported on this platform');
+    }
   }
 
   @override
@@ -175,10 +237,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     }
 
-    if (_keyId == null) {
+    if (_merchantName == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Checkout")),
-        body: const Center(child: Text("Razorpay payment configuration not found.")),
+        body: const Center(child: Text("Payment configuration not found or disabled.")),
       );
     }
 
@@ -199,14 +261,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ),
             Text(
-              "Total: ₹${widget.totalAmount.toStringAsFixed(2)}",
+              "Total: ₹${_totalAmount.toStringAsFixed(2)}",
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _openCheckout,
-              child: const Text("Pay Now"),
-            ),
+            _buildPaymentButton(),
             if (_paymentStatus != null) ...[
               const SizedBox(height: 20),
               Text(
