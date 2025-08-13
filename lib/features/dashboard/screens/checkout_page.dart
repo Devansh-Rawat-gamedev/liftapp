@@ -1,19 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:pay/pay.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pay/pay.dart';
 
 class CheckoutPage extends StatefulWidget {
   final String collegeId;
+  final String campusId;
   final String outletId;
   final List<Map<String, dynamic>> cartItems;
 
   const CheckoutPage({
     super.key,
     required this.collegeId,
+    required this.campusId,
     required this.outletId,
     required this.cartItems,
   });
@@ -46,6 +47,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       sum += (item['price'] as num) * (item['quantity'] as num);
     }
     _totalAmount = sum;
+
     _paymentItems = [
       PaymentItem(
         label: 'Total',
@@ -56,17 +58,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _fetchPaymentConfig() async {
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
       final doc = await FirebaseFirestore.instance
           .collection('colleges')
           .doc(widget.collegeId)
+          .collection('campuses')
+          .doc(widget.campusId)
           .collection('outlets')
           .doc(widget.outletId)
-          .collection('payment_gateways')
+          .collection('payment_gateway')
           .doc('google_apple_pay')
           .get();
 
@@ -81,35 +83,47 @@ class _CheckoutPageState extends State<CheckoutPage> {
             {
               "type": "CARD",
               "parameters": {
-                "allowedAuthMethods": List<String>.from(data['allowedAuthMethods'] ?? ['PAN_ONLY', 'CRYPTOGRAM_3DS']),
-                "allowedCardNetworks": List<String>.from(data['allowedCardNetworks'] ?? ['VISA', 'MASTERCARD', 'AMEX']),
+                "allowedAuthMethods": List<String>.from(
+                    data['allowedAuthMethods'] ??
+                        ['PAN_ONLY', 'CRYPTOGRAM_3DS']),
+                "allowedCardNetworks": List<String>.from(
+                    data['allowedCardNetworks'] ??
+                        ['VISA', 'MASTERCARD', 'AMEX']),
               },
               "tokenizationSpecification": {
                 "type": "PAYMENT_GATEWAY",
                 "parameters": {
                   "gateway": data['gateway'] ?? "example",
-                  "gatewayMerchantId": data['gatewayMerchantId'] ?? "exampleMerchantId",
+                  "gatewayMerchantId":
+                  data['gatewayMerchantId'] ?? "exampleMerchantId",
                 }
               }
             }
           ],
           "merchantInfo": {
             "merchantId": data['merchantId'] ?? "",
-            "merchantName": _merchantName
+            "merchantName": _merchantName,
           },
           "transactionInfo": {
             "countryCode": data['countryCode'] ?? "IN",
-            "currencyCode": data['currencyCode'] ?? "INR"
+            "currencyCode": data['currencyCode'] ?? "INR",
+            "totalPriceStatus": "FINAL",
+            "totalPrice": _totalAmount.toStringAsFixed(2),
           }
         };
 
         final applePayConfigMap = {
           "provider": "apple_pay",
           "data": {
-            "merchantIdentifier": data['appleMerchantIdentifier'] ?? "merchant.com.example",
+            "merchantIdentifier":
+            data['appleMerchantIdentifier'] ?? "merchant.com.example",
             "displayName": _merchantName,
-            "merchantCapabilities": List<String>.from(data['appleMerchantCapabilities'] ?? ["3DS", "debit", "credit"]),
-            "supportedNetworks": List<String>.from(data['appleSupportedNetworks'] ?? ["amex", "visa", "masterCard"]),
+            "merchantCapabilities": List<String>.from(
+                data['appleMerchantCapabilities'] ??
+                    ["3DS", "debit", "credit"]),
+            "supportedNetworks": List<String>.from(
+                data['appleSupportedNetworks'] ??
+                    ["amex", "visa", "masterCard"]),
             "countryCode": data['countryCode'] ?? "IN",
             "currencyCode": data['currencyCode'] ?? "INR"
           }
@@ -127,14 +141,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Payment not enabled for this outlet")),
+            const SnackBar(
+                content: Text("Payment not enabled for this outlet")),
           );
         }
       }
     } catch (e) {
-      setState(() {
-        _loading = false;
-      });
+      setState(() => _loading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error fetching payment config: $e")),
@@ -154,6 +167,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       await FirebaseFirestore.instance.collection('orders').add({
         'customerId': userId,
+        'collegeId': widget.collegeId,
+        'campusId': widget.campusId,
         'outletId': widget.outletId,
         'items': widget.cartItems,
         'totalAmount': _totalAmount,
@@ -208,7 +223,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if (Platform.isAndroid) {
       return GooglePayButton(
-        paymentConfiguration: PaymentConfiguration.fromJsonString(_googlePayConfigJson!),
+        paymentConfiguration:
+        PaymentConfiguration.fromJsonString(_googlePayConfigJson!),
         paymentItems: _paymentItems,
         type: GooglePayButtonType.pay,
         onPaymentResult: _onPaymentResult,
@@ -217,7 +233,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     } else if (Platform.isIOS) {
       return ApplePayButton(
-        paymentConfiguration: PaymentConfiguration.fromJsonString(_applePayConfigJson!),
+        paymentConfiguration:
+        PaymentConfiguration.fromJsonString(_applePayConfigJson!),
         paymentItems: _paymentItems,
         type: ApplePayButtonType.buy,
         onPaymentResult: _onPaymentResult,
@@ -240,7 +257,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (_merchantName == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Checkout")),
-        body: const Center(child: Text("Payment configuration not found or disabled.")),
+        body: const Center(
+            child: Text("Payment configuration not found or disabled.")),
       );
     }
 
@@ -255,14 +273,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 children: widget.cartItems.map((item) {
                   return ListTile(
                     title: Text(item['name']),
-                    trailing: Text("₹${item['price']} × ${item['quantity']}"),
+                    trailing:
+                    Text("₹${item['price']} × ${item['quantity']}"),
                   );
                 }).toList(),
               ),
             ),
             Text(
               "Total: ₹${_totalAmount.toStringAsFixed(2)}",
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style:
+              const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             _buildPaymentButton(),

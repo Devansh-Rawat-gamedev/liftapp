@@ -29,7 +29,7 @@ class _MenuScreenState extends State<MenuScreen> {
 
   @override
   void dispose() {
-    // Keep cart persistent until checkout, don't clear on dispose
+    // Keep cart persistent until checkout
     super.dispose();
   }
 
@@ -109,10 +109,13 @@ class _MenuScreenState extends State<MenuScreen> {
                                         quantity: 1,
                                       ),
                                     );
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
                                       SnackBar(
-                                        content: Text('${item.name} added to cart'),
-                                        duration: const Duration(seconds: 1),
+                                        content: Text(
+                                            '${item.name} added to cart'),
+                                        duration:
+                                        const Duration(seconds: 1),
                                       ),
                                     );
                                   },
@@ -167,8 +170,8 @@ class _MenuScreenState extends State<MenuScreen> {
                             MaterialPageRoute(
                               builder: (_) => CartScreen(
                                 collegeId: widget.collegeId,
+                                campusId: widget.campusId, // FIXED: Passing campusId
                                 outletId: widget.outletId,
-
                               ),
                             ),
                           );

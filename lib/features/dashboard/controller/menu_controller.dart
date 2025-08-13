@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+
 import '../../../data/menudata/menumodel.dart';
 import '../../../services/firestore/firestore_service.dart';
 

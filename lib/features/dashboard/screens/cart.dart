@@ -5,11 +5,13 @@ import 'checkout_page.dart';
 
 class CartScreen extends StatelessWidget {
   final String collegeId;
+  final String campusId; // Added campusId
   final String outletId;
 
   const CartScreen({
     super.key,
     required this.collegeId,
+    required this.campusId, // Required campusId
     required this.outletId,
   });
 
@@ -89,15 +91,15 @@ class CartScreen extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (_) => CheckoutPage(
+                              collegeId: collegeId,
+                              campusId: campusId, // Pass campusId
+                              outletId: outletId,
                               cartItems: cartItems.map((item) => {
                                 "id": item.id,
                                 "name": item.name,
                                 "price": item.price.toDouble(),
                                 "quantity": item.quantity,
                               }).toList(),
-                              // totalAmount: cartController.totalPrice.toDouble(),
-                              collegeId: collegeId,
-                              outletId: outletId,
                             ),
                           ),
                         );

@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+
 import '../../../data/campusmodel/campus_model.dart';
 import '../../../data/college_model.dart';
 import '../../../services/firestore/firestore_service.dart';
