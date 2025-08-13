@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pay/pay.dart';
+import 'dart:html' as html;
 
 class CheckoutPage extends StatefulWidget {
   final String collegeId;
@@ -175,7 +176,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
         'paymentStatus': 'success',
         'paymentDetails': paymentResult,
         'timestamp': FieldValue.serverTimestamp(),
-        'paymentMethod': Platform.isAndroid ? 'Google Pay' : 'Apple Pay',
+        'paymentMethod': kIsWeb
+            ? 'Web Checkout'
+            : defaultTargetPlatform.name == 'android'
+            ? 'Google Pay'
+            : 'Apple Pay',
       });
 
       if (!mounted) return;
@@ -221,7 +226,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return const Text('Payment configuration missing.');
     }
 
-    if (Platform.isAndroid) {
+    if (kIsWeb) {
+      return ElevatedButton(
+        onPressed: () {
+          final hostedUrl =
+              "https://your-payment-link.com?amount=$_totalAmount";
+          html.window.open(hostedUrl, "_blank");
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        ),
+        child: Text(
+          "Pay ₹${_totalAmount.toStringAsFixed(2)} (Web Checkout)",
+          style: const TextStyle(fontSize: 16, color: Colors.white),
+        ),
+      );
+    }
+
+    else if (defaultTargetPlatform == TargetPlatform.android) {
       return GooglePayButton(
         paymentConfiguration:
         PaymentConfiguration.fromJsonString(_googlePayConfigJson!),
@@ -231,7 +254,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         loadingIndicator: const CircularProgressIndicator(),
         onError: _onPaymentError,
       );
-    } else if (Platform.isIOS) {
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       return ApplePayButton(
         paymentConfiguration:
         PaymentConfiguration.fromJsonString(_applePayConfigJson!),
@@ -273,16 +296,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 children: widget.cartItems.map((item) {
                   return ListTile(
                     title: Text(item['name']),
-                    trailing:
-                    Text("₹${item['price']} × ${item['quantity']}"),
+                    trailing: Text(
+                        "₹${item['price']} × ${item['quantity']}"),
                   );
                 }).toList(),
               ),
             ),
             Text(
               "Total: ₹${_totalAmount.toStringAsFixed(2)}",
-              style:
-              const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
             _buildPaymentButton(),
