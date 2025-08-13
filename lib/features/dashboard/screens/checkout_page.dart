@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pay/pay.dart';
-import 'dart:html' as html;
+
+// Conditional import
+import 'payment_handler_stub.dart'
+if (dart.library.html) 'payment_handler_web.dart';
 
 class CheckoutPage extends StatefulWidget {
   final String collegeId;
@@ -85,18 +88,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
               "type": "CARD",
               "parameters": {
                 "allowedAuthMethods": List<String>.from(
-                    data['allowedAuthMethods'] ??
-                        ['PAN_ONLY', 'CRYPTOGRAM_3DS']),
+                    data['allowedAuthMethods'] ?? ['PAN_ONLY', 'CRYPTOGRAM_3DS']),
                 "allowedCardNetworks": List<String>.from(
-                    data['allowedCardNetworks'] ??
-                        ['VISA', 'MASTERCARD', 'AMEX']),
+                    data['allowedCardNetworks'] ?? ['VISA', 'MASTERCARD', 'AMEX']),
               },
               "tokenizationSpecification": {
                 "type": "PAYMENT_GATEWAY",
                 "parameters": {
                   "gateway": data['gateway'] ?? "example",
-                  "gatewayMerchantId":
-                  data['gatewayMerchantId'] ?? "exampleMerchantId",
+                  "gatewayMerchantId": data['gatewayMerchantId'] ?? "exampleMerchantId",
                 }
               }
             }
@@ -120,11 +120,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             data['appleMerchantIdentifier'] ?? "merchant.com.example",
             "displayName": _merchantName,
             "merchantCapabilities": List<String>.from(
-                data['appleMerchantCapabilities'] ??
-                    ["3DS", "debit", "credit"]),
+                data['appleMerchantCapabilities'] ?? ["3DS", "debit", "credit"]),
             "supportedNetworks": List<String>.from(
-                data['appleSupportedNetworks'] ??
-                    ["amex", "visa", "masterCard"]),
+                data['appleSupportedNetworks'] ?? ["amex", "visa", "masterCard"]),
             "countryCode": data['countryCode'] ?? "IN",
             "currencyCode": data['currencyCode'] ?? "INR"
           }
@@ -142,8 +140,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text("Payment not enabled for this outlet")),
+            const SnackBar(content: Text("Payment not enabled for this outlet")),
           );
         }
       }
@@ -231,7 +228,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         onPressed: () {
           final hostedUrl =
               "https://your-payment-link.com?amount=$_totalAmount";
-          html.window.open(hostedUrl, "_blank");
+          openWebPayment(hostedUrl);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
@@ -242,9 +239,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           style: const TextStyle(fontSize: 16, color: Colors.white),
         ),
       );
-    }
-
-    else if (defaultTargetPlatform == TargetPlatform.android) {
+    } else if (defaultTargetPlatform == TargetPlatform.android) {
       return GooglePayButton(
         paymentConfiguration:
         PaymentConfiguration.fromJsonString(_googlePayConfigJson!),
@@ -296,8 +291,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 children: widget.cartItems.map((item) {
                   return ListTile(
                     title: Text(item['name']),
-                    trailing: Text(
-                        "₹${item['price']} × ${item['quantity']}"),
+                    trailing:
+                    Text("₹${item['price']} × ${item['quantity']}"),
                   );
                 }).toList(),
               ),
